@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import re
 import pickle
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -48,10 +47,9 @@ def plot_confusion_matrix(model, X_test, y_test, labels):
     y_true = np.argmax(y_test.to_numpy(), axis=1)
     cm = confusion_matrix(y_true, y_pred_classes)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
-    
-    fig, ax = plt.subplots()  # Create a new figure and axis
+    fig, ax = plt.subplots()
     disp.plot(cmap=plt.cm.Blues, ax=ax)
-    st.pyplot(fig)  # Pass the figure to st.pyplot()
+    st.pyplot(fig)
 
 # Evaluate all models and store their metrics
 acc_blstm, pre_blstm, rec_blstm, model_blstm = evaluate_model('blstmm_model.h5', X_test, y_test, 'B-Directional LSTM')
@@ -59,63 +57,48 @@ acc_gru, pre_gru, rec_gru, model_gru = evaluate_model('grru_model.h5', X_test, y
 acc_lstm, pre_lstm, rec_lstm, model_lstm = evaluate_model('lstmm_model.h5', X_test, y_test, 'LSTM')
 
 # Create DataFrame for evaluation metrics
-eva_p = ("Accuracy", "Precision", "Recall")
-df1 = list(zip([acc_blstm, pre_blstm, rec_blstm], [acc_gru, pre_gru, rec_gru], [acc_lstm, pre_lstm, rec_lstm], eva_p))
-df2 = pd.DataFrame(df1, columns=['b-direc_lstm_model', 'gru_model', 'lstm_model', 'evaluation'])
-df2.set_index("evaluation", inplace=True)
+eva_p = ["Accuracy", "Precision", "Recall"]
+df1 = pd.DataFrame({
+    'b-direc_lstm_model': [acc_blstm, pre_blstm, rec_blstm],
+    'gru_model': [acc_gru, pre_gru, rec_gru],
+    'lstm_model': [acc_lstm, pre_lstm, rec_lstm],
+}, index=eva_p)
 
 # Create DataFrame for accuracy comparison
-mole = ('b-direc_lstm_model', 'gru_model', 'lstm_model', 'evaluation')
-acc_model = (acc_blstm, acc_gru, acc_lstm)
-df3 = list(zip(acc_model, mole))
-acm_df = pd.DataFrame(df3, columns=['Accuracy', 'evaluation'])
-acm_df.set_index("evaluation", inplace=True)
-
-# Create DataFrame for precision and recall comparison
-pr_df = pd.DataFrame({
-    'Model': ['B-Directional LSTM', 'GRU', 'LSTM'],
-    'Accuracy': [acc_blstm, acc_gru, acc_lstm],
-    'Precision': [pre_blstm, pre_gru, pre_lstm],
-    'Recall': [rec_blstm, rec_gru, rec_lstm]
-})
-
-# Determine the best model
-best_model = max([(acc_blstm, 'B-Directional LSTM'), (acc_gru, 'GRU'), (acc_lstm, 'LSTM')])[1]
+mole = ['b-direc_lstm_model', 'gru_model', 'lstm_model']
+acc_model = [acc_blstm, acc_gru, acc_lstm]
+acm_df = pd.DataFrame({'Accuracy': acc_model}, index=mole)
 
 # Streamlit app layout
-st.title('Comparative of Deep Learning Algorithms for Social Media Sentiment Analysis (Twitter)')
+st.title('Model Evaluation and Comparison')
 
 option = st.selectbox('Select Option:', ['Result', 'Confusion Matrix', 'Result Table'])
 
 if option == 'Result':
-    st.subheader('Model Accuracy, Precision, and Recall Comparison')
-    
-    # Line graph for Accuracy, Precision, and Recall
-    fig, ax = plt.subplots()
-    pr_df.plot(x='Model', y=['Accuracy', 'Precision', 'Recall'], kind='line', marker='o', ax=ax)
-    plt.title('Model Accuracy, Precision, and Recall Comparison')
-    plt.ylabel('Metric Value')
-    plt.xlabel('Model')
-    plt.xticks(rotation=0)
-    plt.grid(True)
-    plt.legend(title='Metrics')
-    st.pyplot(fig)  # Pass the figure to st.pyplot()
-    
     st.subheader('Model Accuracy Comparison')
-    
-    # Line graph for Accuracy only
-    fig, ax = plt.subplots()
-    acm_df.plot(kind='line', marker='o', ax=ax)
+    fig1, ax1 = plt.subplots()
+    acm_df.plot(kind='line', marker='o', ax=ax1)
     plt.title('Model Accuracy Comparison')
     plt.ylabel('Accuracy')
     plt.xlabel('Model')
     plt.xticks(rotation=0)
     plt.grid(True)
     plt.legend(title='Models')
-    st.pyplot(fig)  # Pass the figure to st.pyplot()
+    st.pyplot(fig1)
     
-    st.subheader('Best Model')
-    st.write(f"The best model based on accuracy is: {best_model}")
+    st.subheader('Model Metrics Comparison')
+    fig2, ax2 = plt.subplots()
+    df1.T.plot(kind='line', marker='o', ax=ax2)
+    plt.title('Model Metrics Comparison')
+    plt.ylabel('Score')
+    plt.xlabel('Model')
+    plt.xticks(rotation=0)
+    plt.grid(True)
+    plt.legend(title='Metrics')
+    st.pyplot(fig2)
+    
+    best_model = mole[np.argmax(acc_model)]
+    st.write(f"Best model based on accuracy: {best_model}")
 
 elif option == 'Confusion Matrix':
     st.header('Confusion Matrices')
@@ -132,11 +115,11 @@ elif option == 'Confusion Matrix':
         plot_confusion_matrix(model_lstm, X_test, y_test, ['Negative', 'Neutral', 'Positive'])
 
 elif option == 'Result Table':
-    st.subheader('Comparison Accuracy Table')
-    st.write(df2)
+    st.subheader('Comparison Metrics Table')
+    st.write(df1)
     
-    st.subheader('Accuracy Only Table')
+    st.subheader('Accuracy Table')
     st.write(acm_df)
     
-    st.subheader('Best Model')
-    st.write(f"The best model based on accuracy is: {best_model}")
+    best_model = mole[np.argmax(acc_model)]
+    st.write(f"Best model based on accuracy: {best_model}")
